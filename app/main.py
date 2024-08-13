@@ -1,7 +1,7 @@
 import cv2
 import mediapipe as mp
-
 from detector import HandModule, FaceModule
+from utils import draw_landmarks_on_hands, draw_landmarks_on_face
 
 CAMERA_DEVICE = 0
 CAMERA_WIDTH = 1280
@@ -40,18 +40,16 @@ class CoreModule:
 
             image = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
             image = cv2.flip(image, 1)
-            image_for_detect = mp.Image(image_format=mp.ImageFormat.SRGBA, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGBA))
+            image_for_detect = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
             timestamp += 1
             self.hand_detector.detect_async(image_for_detect, timestamp)
             self.face_detector.detect_async(image_for_detect, timestamp)
 
-            cv2.imshow('result', image)
-
             if self.face_module.result and self.hand_module.result:
-                print("Hand and Face Detected")
-                print(self.hand_module.result)
-                print(self.face_module.result)
+                annotated_hands_image = draw_landmarks_on_hands(image, self.hand_module.result)
+                annotated_image = draw_landmarks_on_face(annotated_hands_image, self.face_module.result)
+                cv2.imshow('annotated_image', annotated_image)
 
             if cv2.waitKey(5) & 0xFF == 27:
                 print("Closing Camera Stream")
