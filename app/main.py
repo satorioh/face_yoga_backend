@@ -79,7 +79,12 @@ class CoreModule:
                 face_result = self.face_module.result
                 annotated_hands_image = draw_landmarks_on_hands(image, hand_result)
                 annotated_image = draw_landmarks_on_face(annotated_hands_image, face_result)
-                if face_result.face_landmarks and hand_result.hand_landmarks:
+
+                if not hand_result.hand_landmarks:
+                    cv2.putText(annotated_image, 'No Hand Detected', (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+                elif face_result.face_landmarks and hand_result.hand_landmarks:
                     if self.hand_in_face_bbox(face_result.face_landmarks[0], hand_result.hand_landmarks):
                         cv2.putText(annotated_image, 'Hand in Face Area', (10, 30),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
