@@ -19,8 +19,8 @@ class CoreModule:
 
     def init_camera(self):
         cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
-        # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-        # cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.CAMERA_HEIGHT)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.CAMERA_WIDTH)
         return cap
 
     def init_detector_module(self):
@@ -60,10 +60,14 @@ class CoreModule:
         :return:
         """
         x_min, x_max, y_min, y_max = self.face_bbox(face_landmarks)
+        hand_landmarks_len = len(hand_landmarks)
         for index, hand_landmark in enumerate(hand_landmarks):
             hand = hand_landmarks[index]
             hand_idx = handedness[index][0].index  # 0 for left, 1 for right
             hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
+            if hand_landmarks_len == 1:
+                another_hand_center_points_list = self.hand_center_points_right if hand_idx == 0 else self.hand_center_points_left
+                another_hand_center_points_list.clear()
 
             # 设置手部中心点数据
             self.set_hand_center_point(image, hand, hand_center_points_list)
