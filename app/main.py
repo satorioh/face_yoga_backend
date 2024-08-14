@@ -1,7 +1,8 @@
 import cv2
 import mediapipe as mp
+from collections import deque
 from detector import HandModule, FaceModule
-from utils import draw_landmarks_on_hands, draw_landmarks_on_face
+from utils import draw_landmarks_on_hands, draw_landmarks_on_face, get_hand_center_point, get_smooth_points
 from config import settings
 
 
@@ -12,6 +13,8 @@ class CoreModule:
         self.hand_detector = None
         self.face_detector = None
         self.init_detector_module()
+        self.hand_center_points0 = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # left
+        self.hand_center_points1 = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # right
 
     def init_camera(self):
         cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
@@ -24,6 +27,11 @@ class CoreModule:
         self.face_module = FaceModule()
         self.hand_detector = self.hand_module.init_detector()
         self.face_detector = self.face_module.init_detector()
+
+    def preprocess(self, frame):
+        image = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
+        image = cv2.flip(image, 1)
+        return image
 
     def draw_landmarks(self, image, hand_result, face_result):
         image = draw_landmarks_on_hands(image, hand_result)
@@ -58,6 +66,26 @@ class CoreModule:
                     return True
         return False
 
+    def hand_in_face_detection(self, image, hand_result, face_result):
+        """
+        判断手部位置是否在面部区域内
+        :param image:
+        :param hand_result:
+        :param face_result:
+        :return:
+        """
+        if not hand_result.hand_landmarks:
+            cv2.putText(image, 'No Hand Detected', (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+        elif face_result.face_landmarks and hand_result.hand_landmarks:
+            if self.hand_in_face_bbox(face_result.face_landmarks[0], hand_result.hand_landmarks):
+                cv2.putText(image, 'Hand in Face Area', (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+            else:
+                cv2.putText(image, 'Hand not in Face Area', (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
     def start(self):
         cap = self.init_camera()
         timestamp = 0
@@ -68,11 +96,12 @@ class CoreModule:
                 print("Ignoring empty camera frame.")
                 continue
 
-            image = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
-            image = cv2.flip(image, 1)
+            # 图像预处理
+            image = self.preprocess(frame)
             image_for_detect = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-
             timestamp += 1
+
+            # 获取手部和面部关键点
             self.hand_detector.detect_async(image_for_detect, timestamp)
             self.face_detector.detect_async(image_for_detect, timestamp)
 
@@ -80,21 +109,14 @@ class CoreModule:
                 hand_result = self.hand_module.result
                 face_result = self.face_module.result
 
+                # 绘制手部和面部关键点
                 if settings.DRAW_LANDMARKS:
-                    # 绘制手部和面部关键点
                     image = self.draw_landmarks(image, hand_result, face_result)
 
-                if not hand_result.hand_landmarks:
-                    cv2.putText(image, 'No Hand Detected', (10, 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                # 判断手部位置是否在面部区域内
+                self.hand_in_face_detection(image, hand_result, face_result)
 
-                elif face_result.face_landmarks and hand_result.hand_landmarks:
-                    if self.hand_in_face_bbox(face_result.face_landmarks[0], hand_result.hand_landmarks):
-                        cv2.putText(image, 'Hand in Face Area', (10, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-                    else:
-                        cv2.putText(image, 'Hand not in Face Area', (10, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+                # 显示图像
                 cv2.imshow('annotated_image', image)
 
             if cv2.waitKey(5) & 0xFF == 27:
