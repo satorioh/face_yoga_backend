@@ -1,3 +1,4 @@
+import cv2
 import mediapipe as mp
 import numpy as np
 from mediapipe import solutions
@@ -67,3 +68,10 @@ def draw_landmarks_on_face(rgb_image, detection_result):
             .get_default_face_mesh_iris_connections_style())
 
     return annotated_image
+
+
+def draw_trajectory(image, points):
+    points_len = len(points)
+    for i in range(1, points_len):
+        cv2.line(image, points[i - 1], points[i], (0, 255, 0), 5)
+    return image

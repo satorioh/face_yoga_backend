@@ -2,7 +2,8 @@ import cv2
 import mediapipe as mp
 from collections import deque
 from detector import HandModule, FaceModule
-from utils import draw_landmarks_on_hands, draw_landmarks_on_face, get_hand_center_point, get_smooth_points
+from utils import draw_landmarks_on_hands, draw_landmarks_on_face, draw_trajectory, get_hand_center_point, \
+    get_smooth_points
 from config import settings
 
 
@@ -109,17 +110,25 @@ class CoreModule:
             smoothed_center_left = get_smooth_points(self.hand_center_points_left,
                                                      settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)
             if smoothed_center_left:
-                cv2.circle(image, (
-                    int(smoothed_center_left[0]), int(smoothed_center_left[1])), 5,
-                           (0, 0, 255), -1)
+                # 绘制手部中心点
+                # cv2.circle(image, (
+                #     int(smoothed_center_left[0]), int(smoothed_center_left[1])), 5,
+                #            (0, 255, 0), -1)
+
+                # 绘制手部中心点轨迹
+                draw_trajectory(image, self.hand_center_points_left)
 
         if len(self.hand_center_points_right) == settings.FRAME_NUM_FOR_HAND_CENTER_POINTS:
             smoothed_center_right = get_smooth_points(self.hand_center_points_right,
                                                       settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)
             if smoothed_center_right:
-                cv2.circle(image, (
-                    int(smoothed_center_right[0]), int(smoothed_center_right[1])), 5,
-                           (255, 0, 0), -1)
+                # 绘制手部中心点
+                # cv2.circle(image, (
+                #     int(smoothed_center_right[0]), int(smoothed_center_right[1])), 5,
+                #            (0, 255, 0), -1)
+
+                # 绘制手部中心点轨迹
+                draw_trajectory(image, self.hand_center_points_right)
         return image
 
     def start(self):
@@ -152,7 +161,7 @@ class CoreModule:
                 # 判断手部位置是否在面部区域内
                 self.hand_in_face_detection(image, hand_result, face_result)
 
-                # 显示手部中心点
+                # 显示手部中心点和轨迹
                 image = self.show_hand_center_point(image)
 
                 # 显示图像
