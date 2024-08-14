@@ -50,22 +50,24 @@ class CoreModule:
         y_min, y_max = min(y), max(y)
         return x_min, x_max, y_min, y_max
 
-    def hand_in_face_bbox(self, image, face_landmarks, hand_landmarks, handedness):
+    def loop_hand_face(self, image, face_landmarks, hand_landmarks, handedness) -> bool:
         """
-        检测手部是否在面部边框范围内，只要有任意一只在范围内就返回True
+        1.检测手部是否在面部边框范围内，只要有任意一只在范围内就返回True
+        2.设置手部中心点数据
         :param face_landmarks:
         :param hand_landmarks:
         :return:
         """
         x_min, x_max, y_min, y_max = self.face_bbox(face_landmarks)
-        hand_landmarks_len = len(hand_landmarks)
         for index, hand_landmark in enumerate(hand_landmarks):
             hand = hand_landmarks[index]
             hand_idx = handedness[index][0].index  # 0 for left, 1 for right
-            print("hand_landmarks_len", hand_landmarks_len)
-            print("hand_idx", hand_idx)
             hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
+
+            # 设置手部中心点数据
             self.set_hand_center_point(image, hand, hand_center_points_list)
+
+            # 检测手部是否在面部边框范围内
             for landmark in hand:
                 if x_min < landmark.x < x_max and y_min < landmark.y < y_max:
                     return True
@@ -80,12 +82,13 @@ class CoreModule:
         :return:
         """
         if not hand_result.hand_landmarks:
+            self.clear_hand_center_points()
             cv2.putText(image, 'No Hand Detected', (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
         elif face_result.face_landmarks and hand_result.hand_landmarks:
-            if self.hand_in_face_bbox(image, face_result.face_landmarks[0], hand_result.hand_landmarks,
-                                      hand_result.handedness):
+            if self.loop_hand_face(image, face_result.face_landmarks[0], hand_result.hand_landmarks,
+                                   hand_result.handedness):
                 cv2.putText(image, 'Hand in Face Area', (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:
@@ -96,6 +99,10 @@ class CoreModule:
         h, w, c = image.shape
         center_x, center_y = get_hand_center_point(hand)
         hand_center_points_list.append((int(center_x * w), int(center_y * h)))
+
+    def clear_hand_center_points(self):
+        self.hand_center_points_left.clear()
+        self.hand_center_points_right.clear()
 
     def show_hand_center_point(self, image):
         if len(self.hand_center_points_left) == settings.FRAME_NUM_FOR_HAND_CENTER_POINTS:
