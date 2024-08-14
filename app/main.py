@@ -2,10 +2,7 @@ import cv2
 import mediapipe as mp
 from detector import HandModule, FaceModule
 from utils import draw_landmarks_on_hands, draw_landmarks_on_face
-
-CAMERA_DEVICE = 0
-CAMERA_WIDTH = 1280
-CAMERA_HEIGHT = 720
+from config import settings
 
 
 class CoreModule:
@@ -17,7 +14,7 @@ class CoreModule:
         self.init_detector_module()
 
     def init_camera(self):
-        cap = cv2.VideoCapture(CAMERA_DEVICE)
+        cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
         # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
         # cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
         return cap
@@ -27,6 +24,11 @@ class CoreModule:
         self.face_module = FaceModule()
         self.hand_detector = self.hand_module.init_detector()
         self.face_detector = self.face_module.init_detector()
+
+    def draw_landmarks(self, image, hand_result, face_result):
+        image = draw_landmarks_on_hands(image, hand_result)
+        image = draw_landmarks_on_face(image, face_result)
+        return image
 
     def face_bbox(self, face_landmarks):
         """
@@ -77,21 +79,23 @@ class CoreModule:
             if self.hand_module.result and self.face_module.result:
                 hand_result = self.hand_module.result
                 face_result = self.face_module.result
-                annotated_hands_image = draw_landmarks_on_hands(image, hand_result)
-                annotated_image = draw_landmarks_on_face(annotated_hands_image, face_result)
+
+                if settings.DRAW_LANDMARKS:
+                    # 绘制手部和面部关键点
+                    image = self.draw_landmarks(image, hand_result, face_result)
 
                 if not hand_result.hand_landmarks:
-                    cv2.putText(annotated_image, 'No Hand Detected', (10, 30),
+                    cv2.putText(image, 'No Hand Detected', (10, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
                 elif face_result.face_landmarks and hand_result.hand_landmarks:
                     if self.hand_in_face_bbox(face_result.face_landmarks[0], hand_result.hand_landmarks):
-                        cv2.putText(annotated_image, 'Hand in Face Area', (10, 30),
+                        cv2.putText(image, 'Hand in Face Area', (10, 30),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
                     else:
-                        cv2.putText(annotated_image, 'Hand not in Face Area', (10, 30),
+                        cv2.putText(image, 'Hand not in Face Area', (10, 30),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-                cv2.imshow('annotated_image', annotated_image)
+                cv2.imshow('annotated_image', image)
 
             if cv2.waitKey(5) & 0xFF == 27:
                 print("Closing Camera Stream")
