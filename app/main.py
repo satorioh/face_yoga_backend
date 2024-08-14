@@ -13,8 +13,8 @@ class CoreModule:
         self.hand_detector = None
         self.face_detector = None
         self.init_detector_module()
-        self.hand_center_points0 = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # left
-        self.hand_center_points1 = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # right
+        self.hand_center_points_left = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # left
+        self.hand_center_points_right = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # right
 
     def init_camera(self):
         cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
@@ -50,7 +50,7 @@ class CoreModule:
         y_min, y_max = min(y), max(y)
         return x_min, x_max, y_min, y_max
 
-    def hand_in_face_bbox(self, face_landmarks, hand_landmarks):
+    def hand_in_face_bbox(self, image, face_landmarks, hand_landmarks, handedness):
         """
         检测手部是否在面部边框范围内，只要有任意一只在范围内就返回True
         :param face_landmarks:
@@ -59,8 +59,13 @@ class CoreModule:
         """
         x_min, x_max, y_min, y_max = self.face_bbox(face_landmarks)
         hand_landmarks_len = len(hand_landmarks)
-        for idx in range(hand_landmarks_len):
-            hand = hand_landmarks[idx]
+        for index, hand_landmark in enumerate(hand_landmarks):
+            hand = hand_landmarks[index]
+            hand_idx = handedness[index][0].index  # 0 for left, 1 for right
+            print("hand_landmarks_len", hand_landmarks_len)
+            print("hand_idx", hand_idx)
+            hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
+            self.set_hand_center_point(image, hand, hand_center_points_list)
             for landmark in hand:
                 if x_min < landmark.x < x_max and y_min < landmark.y < y_max:
                     return True
@@ -79,12 +84,36 @@ class CoreModule:
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
         elif face_result.face_landmarks and hand_result.hand_landmarks:
-            if self.hand_in_face_bbox(face_result.face_landmarks[0], hand_result.hand_landmarks):
+            if self.hand_in_face_bbox(image, face_result.face_landmarks[0], hand_result.hand_landmarks,
+                                      hand_result.handedness):
                 cv2.putText(image, 'Hand in Face Area', (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:
                 cv2.putText(image, 'Hand not in Face Area', (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+    def set_hand_center_point(self, image, hand, hand_center_points_list):
+        h, w, c = image.shape
+        center_x, center_y = get_hand_center_point(hand)
+        hand_center_points_list.append((int(center_x * w), int(center_y * h)))
+
+    def show_hand_center_point(self, image):
+        if len(self.hand_center_points_left) == settings.FRAME_NUM_FOR_HAND_CENTER_POINTS:
+            smoothed_center_left = get_smooth_points(self.hand_center_points_left,
+                                                     settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)
+            if smoothed_center_left:
+                cv2.circle(image, (
+                    int(smoothed_center_left[0]), int(smoothed_center_left[1])), 5,
+                           (0, 0, 255), -1)
+
+        if len(self.hand_center_points_right) == settings.FRAME_NUM_FOR_HAND_CENTER_POINTS:
+            smoothed_center_right = get_smooth_points(self.hand_center_points_right,
+                                                      settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)
+            if smoothed_center_right:
+                cv2.circle(image, (
+                    int(smoothed_center_right[0]), int(smoothed_center_right[1])), 5,
+                           (255, 0, 0), -1)
+        return image
 
     def start(self):
         cap = self.init_camera()
@@ -115,6 +144,9 @@ class CoreModule:
 
                 # 判断手部位置是否在面部区域内
                 self.hand_in_face_detection(image, hand_result, face_result)
+
+                # 显示手部中心点
+                image = self.show_hand_center_point(image)
 
                 # 显示图像
                 cv2.imshow('annotated_image', image)

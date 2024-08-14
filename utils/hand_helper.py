@@ -10,6 +10,6 @@ def get_hand_center_point(hand_landmarks):
 def get_smooth_points(points, frame_num: int):
     if len(points) < frame_num:
         return None
-    smoothed_x = np.mean([point[0] for point in points])
-    smoothed_y = np.mean([point[1] for point in points])
+    smoothed_x = np.mean([point[0] for point in points], dtype=np.float32)
+    smoothed_y = np.mean([point[1] for point in points], dtype=np.float32)
     return smoothed_x, smoothed_y
