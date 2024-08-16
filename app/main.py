@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 from collections import deque
 from detector import HandModule, FaceModule
-from utils import draw_landmarks_on_hands, draw_landmarks_on_face, draw_trajectory, get_hand_center_point, \
+from utils import draw_landmarks_on_hands, draw_landmarks_on_face, draw_points_trajectory, get_hand_center_point, \
     get_smooth_points
 from config import settings
 
@@ -104,16 +104,21 @@ class CoreModule:
         handedness = hand_result.handedness
         hand_landmarks_len = len(hand_landmarks)
 
-        if hand_landmarks:
+        if hand_landmarks_len == 1:
+            # 一只手时看handedness : 0 for right, 1 for left
+            hand_idx = handedness[0][0].index
+            hand_center_points_list = self.hand_center_points_right if hand_idx == 0 else self.hand_center_points_left
+            another_hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
+            # 只有一只手，说明另一只手移出了
+            another_hand_center_points_list.clear()
+            # 设置手部中心点数据
+            self.set_hand_center_point(image, hand_landmarks[0], hand_center_points_list)
+
+        elif hand_landmarks_len == 2:
             for index, hand_landmark in enumerate(hand_landmarks):
                 hand = hand_landmarks[index]
-                hand_idx = handedness[index][0].index  # 0 for left, 1 for right
-                hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
-                if hand_landmarks_len == 1:
-                    another_hand_center_points_list = self.hand_center_points_right if hand_idx == 0 else self.hand_center_points_left
-                    # 只有一只手，说明另一只手移出了
-                    another_hand_center_points_list.clear()
-
+                # 两只手时看index : 0 for left, 1 for right
+                hand_center_points_list = self.hand_center_points_left if index == 0 else self.hand_center_points_right
                 # 设置手部中心点数据
                 self.set_hand_center_point(image, hand, hand_center_points_list)
 
@@ -138,7 +143,7 @@ class CoreModule:
                                (0, 255, 0), -1)
 
                 # 绘制手部中心点轨迹
-                draw_trajectory(image, self.hand_center_points_left)
+                draw_points_trajectory(image, self.hand_center_points_left)
 
         if len(self.hand_center_points_right) == settings.FRAME_NUM_FOR_HAND_CENTER_POINTS:
             smoothed_center_right = get_smooth_points(self.hand_center_points_right,
@@ -151,7 +156,7 @@ class CoreModule:
                                (0, 255, 0), -1)
 
                 # 绘制手部中心点轨迹
-                draw_trajectory(image, self.hand_center_points_right)
+                draw_points_trajectory(image, self.hand_center_points_right)
         return image
 
     def start(self):

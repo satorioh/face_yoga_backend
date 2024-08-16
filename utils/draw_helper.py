@@ -70,7 +70,7 @@ def draw_landmarks_on_face(rgb_image, detection_result):
     return annotated_image
 
 
-def draw_trajectory(image, points):
+def draw_points_trajectory(image, points):
     points_len = len(points)
     for i in range(1, points_len):
         cv2.line(image, points[i - 1], points[i], (0, 255, 0), 5)
