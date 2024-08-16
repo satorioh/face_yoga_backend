@@ -87,8 +87,12 @@ class CoreModule:
         :return:
         """
         if not hand_result.hand_landmarks:
+            # 手移出时清空手部中心点数据
             self.clear_hand_center_points()
             cv2.putText(image, 'No Hand Detected', (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+        elif not face_result.face_landmarks:
+            cv2.putText(image, 'Face is Blocked', (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
         elif face_result.face_landmarks and hand_result.hand_landmarks:
@@ -115,9 +119,10 @@ class CoreModule:
                                                      settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)
             if smoothed_center_left:
                 # 绘制手部中心点
-                # cv2.circle(image, (
-                #     int(smoothed_center_left[0]), int(smoothed_center_left[1])), 5,
-                #            (0, 255, 0), -1)
+                if settings.DRAW_HAND_CENTER_POINTS:
+                    cv2.circle(image, (
+                        int(smoothed_center_left[0]), int(smoothed_center_left[1])), 5,
+                               (0, 255, 0), -1)
 
                 # 绘制手部中心点轨迹
                 draw_trajectory(image, self.hand_center_points_left)
@@ -127,9 +132,10 @@ class CoreModule:
                                                       settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)
             if smoothed_center_right:
                 # 绘制手部中心点
-                # cv2.circle(image, (
-                #     int(smoothed_center_right[0]), int(smoothed_center_right[1])), 5,
-                #            (0, 255, 0), -1)
+                if settings.DRAW_HAND_CENTER_POINTS:
+                    cv2.circle(image, (
+                        int(smoothed_center_right[0]), int(smoothed_center_right[1])), 5,
+                               (0, 255, 0), -1)
 
                 # 绘制手部中心点轨迹
                 draw_trajectory(image, self.hand_center_points_right)
@@ -150,14 +156,17 @@ class CoreModule:
             image_for_detect = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
             timestamp += 1
 
+            # ------------- Detection Start ---------------#
             # 获取手部和面部关键点
             self.hand_detector.detect_async(image_for_detect, timestamp)
             self.face_detector.detect_async(image_for_detect, timestamp)
+            # ------------- Detection End -----------------#
 
             if self.hand_module.result and self.face_module.result:
                 hand_result = self.hand_module.result
                 face_result = self.face_module.result
 
+                # ------------- Operation Start ---------------#
                 # 绘制手部和面部关键点
                 if settings.DRAW_LANDMARKS:
                     image = self.draw_landmarks(image, hand_result, face_result)
@@ -167,6 +176,7 @@ class CoreModule:
 
                 # 显示手部中心点和轨迹
                 image = self.show_hand_center_point(image)
+                # ------------- Operation End ---------------#
 
                 # 显示图像
                 cv2.imshow('annotated_image', image)
