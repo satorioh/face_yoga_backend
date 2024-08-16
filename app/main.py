@@ -39,6 +39,16 @@ class CoreModule:
         image = draw_landmarks_on_face(image, face_result)
         return image
 
+    def no_hand_or_face_hint(self, image, hand_result, face_result):
+        if not hand_result.hand_landmarks:
+            # 手移出时清空手部中心点数据
+            self.clear_hand_center_points()
+            cv2.putText(image, 'No Hand Detected', (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+        elif not face_result.face_landmarks:
+            cv2.putText(image, 'Face is Blocked', (10, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
     def face_bbox(self, face_landmarks):
         """
         获取面部边框
@@ -51,27 +61,16 @@ class CoreModule:
         y_min, y_max = min(y), max(y)
         return x_min, x_max, y_min, y_max
 
-    def loop_hand_face(self, image, face_landmarks, hand_landmarks, handedness) -> bool:
+    def is_hand_in_face(self, face_landmarks, hand_landmarks) -> bool:
         """
-        1.检测手部是否在面部边框范围内，只要有任意一只在范围内就返回True
-        2.设置手部中心点数据
+        检测手部是否在面部边框范围内，只要有任意一只在范围内就返回True
         :param face_landmarks:
         :param hand_landmarks:
         :return:
         """
         x_min, x_max, y_min, y_max = self.face_bbox(face_landmarks)
-        hand_landmarks_len = len(hand_landmarks)
         for index, hand_landmark in enumerate(hand_landmarks):
             hand = hand_landmarks[index]
-            hand_idx = handedness[index][0].index  # 0 for left, 1 for right
-            hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
-            if hand_landmarks_len == 1:
-                another_hand_center_points_list = self.hand_center_points_right if hand_idx == 0 else self.hand_center_points_left
-                another_hand_center_points_list.clear()
-
-            # 设置手部中心点数据
-            self.set_hand_center_point(image, hand, hand_center_points_list)
-
             # 检测手部是否在面部边框范围内
             for landmark in hand:
                 if x_min < landmark.x < x_max and y_min < landmark.y < y_max:
@@ -86,23 +85,37 @@ class CoreModule:
         :param face_result:
         :return:
         """
-        if not hand_result.hand_landmarks:
-            # 手移出时清空手部中心点数据
-            self.clear_hand_center_points()
-            cv2.putText(image, 'No Hand Detected', (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-        elif not face_result.face_landmarks:
-            cv2.putText(image, 'Face is Blocked', (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
-
-        elif face_result.face_landmarks and hand_result.hand_landmarks:
-            if self.loop_hand_face(image, face_result.face_landmarks[0], hand_result.hand_landmarks,
-                                   hand_result.handedness):
+        if face_result.face_landmarks and hand_result.hand_landmarks:
+            if self.is_hand_in_face(face_result.face_landmarks[0], hand_result.hand_landmarks):
                 cv2.putText(image, 'Hand in Face Area', (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:
                 cv2.putText(image, 'Hand not in Face Area', (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+    def hand_center_detection(self, image, hand_result):
+        """
+        判断左右手并设置手部中心点数据
+        :param image:
+        :param hand_result:
+        :return:
+        """
+        hand_landmarks = hand_result.hand_landmarks
+        handedness = hand_result.handedness
+        hand_landmarks_len = len(hand_landmarks)
+
+        if hand_landmarks:
+            for index, hand_landmark in enumerate(hand_landmarks):
+                hand = hand_landmarks[index]
+                hand_idx = handedness[index][0].index  # 0 for left, 1 for right
+                hand_center_points_list = self.hand_center_points_left if hand_idx == 0 else self.hand_center_points_right
+                if hand_landmarks_len == 1:
+                    another_hand_center_points_list = self.hand_center_points_right if hand_idx == 0 else self.hand_center_points_left
+                    # 只有一只手，说明另一只手移出了
+                    another_hand_center_points_list.clear()
+
+                # 设置手部中心点数据
+                self.set_hand_center_point(image, hand, hand_center_points_list)
 
     def set_hand_center_point(self, image, hand, hand_center_points_list):
         h, w, c = image.shape
@@ -171,8 +184,14 @@ class CoreModule:
                 if settings.DRAW_LANDMARKS:
                     image = self.draw_landmarks(image, hand_result, face_result)
 
+                # 提示无手部或者面部遮挡
+                self.no_hand_or_face_hint(image, hand_result, face_result)
+
                 # 判断手部位置是否在面部区域内
                 self.hand_in_face_detection(image, hand_result, face_result)
+
+                # 设置手部中心点数据
+                self.hand_center_detection(image, hand_result)
 
                 # 显示手部中心点和轨迹
                 image = self.show_hand_center_point(image)
