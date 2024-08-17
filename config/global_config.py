@@ -12,11 +12,12 @@ class Settings:
     DRAW_LANDMARKS = False
     DRAW_HAND_CENTER_POINTS = False
     # -------------Mediapipe 设置---------------#
-    RUNNING_MODE = "LIVE_STREAM"
+    # RUNNING_MODE = "LIVE_STREAM"
     # -------------手部计算设置---------------#
     FRAME_NUM_FOR_HAND_CENTER_POINTS = 10
     # -------------视频输出设置---------------#
     DEFAULT_OUTPUT_VIDEO_PATH = "../dist/output.mp4"
+    VIDEO_FPS = 24
 
 
 settings = Settings()

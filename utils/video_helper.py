@@ -19,7 +19,7 @@ def save_video(video_frames, output_video_path=settings.DEFAULT_OUTPUT_VIDEO_PAT
     print("Saving video...")
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     h, w = video_frames[0].shape[:2]
-    out = cv2.VideoWriter(output_video_path, fourcc, 24, (w, h))
+    out = cv2.VideoWriter(output_video_path, fourcc, settings.VIDEO_FPS, (w, h))
     for frame in video_frames:
         out.write(frame)
     out.release()
