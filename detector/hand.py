@@ -1,5 +1,4 @@
 import mediapipe as mp
-from config import settings
 
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -8,12 +7,12 @@ HandLandmarkerResult = mp.tasks.vision.HandLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
 
 MODEL_PATH = "../model/hand_landmarker.task"
-RUNNING_MODE = settings.RUNNING_MODE
 
 
 class HandModule:
-    def __init__(self):
+    def __init__(self, running_mode="LIVE_STREAM"):
         self.result = None
+        self.running_mode = running_mode
 
     def init_detector(self):
         print("HandModule init_detector")
@@ -21,7 +20,7 @@ class HandModule:
         options = HandLandmarkerOptions(base_options=base_options, running_mode=VisionRunningMode.LIVE_STREAM,
                                         num_hands=2,
                                         result_callback=self.print_result)
-        if RUNNING_MODE == "VIDEO":
+        if self.running_mode == "VIDEO":
             options = HandLandmarkerOptions(base_options=base_options, running_mode=VisionRunningMode.VIDEO,
                                             num_hands=2)
         return HandLandmarker.create_from_options(options)

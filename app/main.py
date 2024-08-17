@@ -15,26 +15,25 @@ class CoreModule:
         self.face_module = None
         self.hand_detector = None
         self.face_detector = None
-        self.init_detector_module()
+        self.init_detector_module(mode=RUNNING_MODE)
         self.hand_center_points_left = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # left
         self.hand_center_points_right = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # right
 
-    def init_camera(self, video_path=None):
-        if video_path:
-            cap = cv2.VideoCapture(video_path)
-        else:
-            cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.CAMERA_HEIGHT)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.CAMERA_WIDTH)
+    def init_camera(self):
+        print("Init Camera...")
+        cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.CAMERA_HEIGHT)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.CAMERA_WIDTH)
         return cap
 
-    def init_detector_module(self):
-        self.hand_module = HandModule()
-        self.face_module = FaceModule()
+    def init_detector_module(self, mode):
+        self.hand_module = HandModule(mode)
+        self.face_module = FaceModule(mode)
         self.hand_detector = self.hand_module.init_detector()
         self.face_detector = self.face_module.init_detector()
 
     def preprocess(self, frame):
+        print("Preprocess...")
         image = cv2.resize(frame, (frame.shape[1] // 2, frame.shape[0] // 2))
         image = cv2.flip(image, 1)
         return image
@@ -164,8 +163,53 @@ class CoreModule:
                 draw_points_trajectory(image, self.hand_center_points_right)
         return image
 
-    def start(self, video_path=None):
-        cap = self.init_camera(video_path)
+    def process(self, frame, timestamp, mode):
+        # 图像预处理
+        image = self.preprocess(frame)
+        image_for_detect = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        timestamp += 1
+
+        # ------------- Detection Start ---------------#
+        # 获取手部和面部关键点
+        if mode == "LIVE_STREAM":
+            print("Detecting for LIVE_STREAM...")
+            self.hand_detector.detect_async(image_for_detect, timestamp)
+            self.face_detector.detect_async(image_for_detect, timestamp)
+        elif mode == "VIDEO":
+            print("Detecting for VIDEO...")
+            self.hand_module.result = self.hand_detector.detect_for_video(image_for_detect, timestamp)
+            self.face_module.result = self.face_detector.detect_for_video(image_for_detect, timestamp)
+        # ------------- Detection End -----------------#
+
+        if self.hand_module.result and self.face_module.result:
+            print("Get Hand and Face Result")
+            hand_result = self.hand_module.result
+            face_result = self.face_module.result
+
+            # ------------- Operation Start ---------------#
+            # 绘制手部和面部关键点
+            if settings.DRAW_LANDMARKS:
+                image = self.draw_landmarks(image, hand_result, face_result)
+
+            # 提示无手部或者面部遮挡
+            self.no_hand_or_face_hint(image, hand_result, face_result)
+
+            # 判断手部位置是否在面部区域内
+            self.hand_in_face_detection(image, hand_result, face_result)
+
+            # 设置手部中心点数据
+            self.hand_center_detection(image, hand_result)
+
+            # 显示手部中心点和轨迹
+            image = self.show_hand_center_point(image)
+            # ------------- Operation End ---------------#
+            return image
+        else:
+            return frame
+
+    def start(self):
+        # 初始化摄像头
+        cap = self.init_camera()
         timestamp = 0
 
         while cap.isOpened():
@@ -174,45 +218,12 @@ class CoreModule:
                 print("Ignoring empty camera frame.")
                 continue
 
-            # 图像预处理
-            image = self.preprocess(frame)
-            image_for_detect = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            # 处理图像
+            image = self.process(frame, timestamp, mode=RUNNING_MODE)
             timestamp += 1
 
-            # ------------- Detection Start ---------------#
-            # 获取手部和面部关键点
-            if RUNNING_MODE == "LIVE_STREAM":
-                self.hand_detector.detect_async(image_for_detect, timestamp)
-                self.face_detector.detect_async(image_for_detect, timestamp)
-            elif RUNNING_MODE == "VIDEO":
-                self.hand_module.result = self.hand_detector.detect_for_video(image_for_detect, timestamp)
-                self.face_module.result = self.face_detector.detect_for_video(image_for_detect, timestamp)
-            # ------------- Detection End -----------------#
-
-            if self.hand_module.result and self.face_module.result:
-                hand_result = self.hand_module.result
-                face_result = self.face_module.result
-
-                # ------------- Operation Start ---------------#
-                # 绘制手部和面部关键点
-                if settings.DRAW_LANDMARKS:
-                    image = self.draw_landmarks(image, hand_result, face_result)
-
-                # 提示无手部或者面部遮挡
-                self.no_hand_or_face_hint(image, hand_result, face_result)
-
-                # 判断手部位置是否在面部区域内
-                self.hand_in_face_detection(image, hand_result, face_result)
-
-                # 设置手部中心点数据
-                self.hand_center_detection(image, hand_result)
-
-                # 显示手部中心点和轨迹
-                image = self.show_hand_center_point(image)
-                # ------------- Operation End ---------------#
-
-                # 显示图像
-                cv2.imshow('annotated_image', image)
+            # 显示图像
+            cv2.imshow('annotated_image', image)
 
             if cv2.waitKey(5) & 0xFF == 27:
                 print("Closing Camera Stream")
@@ -225,4 +236,4 @@ class CoreModule:
 if __name__ == '__main__':
     core_module = CoreModule()
     video_path = "../asserts/video/sample2.mp4" if RUNNING_MODE == "VIDEO" else None
-    core_module.start(video_path)
+    core_module.start()
