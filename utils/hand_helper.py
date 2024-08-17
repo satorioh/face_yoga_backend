@@ -7,9 +7,7 @@ def get_hand_center_point(hand_landmarks):
     return center_x, center_y
 
 
-def get_smooth_points(points, frame_num: int):
-    if len(points) < frame_num:
-        return None
-    smoothed_x = np.mean([point[0] for point in points], dtype=np.float32)
-    smoothed_y = np.mean([point[1] for point in points], dtype=np.float32)
-    return smoothed_x, smoothed_y
+def get_hand_contour(hand_landmarks, image_shape):
+    h, w, c = image_shape
+    hand_contour = [(int(landmark.x * w), int(landmark.y * h)) for landmark in hand_landmarks]
+    return np.array(hand_contour, dtype=np.int32)

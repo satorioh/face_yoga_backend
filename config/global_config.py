@@ -11,8 +11,7 @@ class Settings:
     # -------------显示设置----------------- #
     DRAW_LANDMARKS = False
     DRAW_HAND_CENTER_POINTS = False
-    # -------------Mediapipe 设置---------------#
-
+    DRAW_HAND_FACE_CONTOUR = True
     # -------------手部计算设置---------------#
     FRAME_NUM_FOR_HAND_CENTER_POINTS = 10
     # -------------视频输出设置---------------#
