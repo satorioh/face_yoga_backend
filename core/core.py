@@ -2,7 +2,7 @@ import cv2
 import mediapipe as mp
 from detector import HandModule, FaceModule
 from utils import draw_landmarks_on_hands, draw_landmarks_on_face, get_face_bbox, get_forehead_contour, \
-    get_contour_area, get_hand_contour, calculate_intersection_area, find_contour_hull
+    get_contour_area, get_hand_contour, calculate_intersection_area, find_contour_hull, draw_arrows_on_forehead
 from config import settings
 from constants import HAND_FOREHEAD_INTERSECTION_THRESHOLD
 
@@ -112,6 +112,8 @@ class CoreModule:
         """
         if face_result.face_landmarks and hand_result.hand_landmarks:
             if self.is_hands_intersecting_forehead(image, hand_result.hand_landmarks, face_result.face_landmarks[0]):
+                # 绘制箭头
+                draw_arrows_on_forehead(image, face_result.face_landmarks[0])
                 cv2.putText(image, 'Hand Intersecting Forehead', (10, 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:

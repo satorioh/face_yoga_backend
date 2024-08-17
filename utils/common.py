@@ -2,6 +2,11 @@ import cv2
 import numpy as np
 
 
+def point2pixel(point, image_shape):
+    h, w, _ = image_shape
+    return int(point.x * w), int(point.y * h)
+
+
 def get_smooth_points(points, frame_num: int):
     if len(points) < frame_num:
         return None
