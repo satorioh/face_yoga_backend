@@ -75,8 +75,20 @@ class CoreModule:
                 cv2.putText(image, 'Hand not in Face Area', (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
-    def is_hand_intersecting_forehead(self, image, hand_landmarks, face_landmarks,
-                                      threshold=HAND_FOREHEAD_INTERSECTION_THRESHOLD):
+    def is_one_hand_intersecting_forehead(self, image, hand_landmarks, forehead_contour_hull, forehead_area,
+                                          threshold=HAND_FOREHEAD_INTERSECTION_THRESHOLD):
+        image_shape = image.shape
+        hand_contour = get_hand_contour(hand_landmarks, image_shape)
+        hand_contour_hull = find_contour_hull(hand_contour)
+        if settings.DRAW_HAND_FACE_CONTOUR:
+            # 绘制手部凸包轮廓
+            cv2.polylines(image, [hand_contour_hull], isClosed=True, color=(255, 0, 0), thickness=2)
+
+        intersection_area = calculate_intersection_area(hand_contour_hull, forehead_contour_hull)
+        intersection_ratio = intersection_area / forehead_area
+        return intersection_ratio > threshold
+
+    def is_hands_intersecting_forehead(self, image, hand_landmarks, face_landmarks):
         image_shape = image.shape
         forehead_contour = get_forehead_contour(face_landmarks, image_shape)
         forehead_contour_hull = find_contour_hull(forehead_contour)
@@ -85,16 +97,10 @@ class CoreModule:
             cv2.polylines(image, [forehead_contour_hull], isClosed=True, color=(0, 255, 0), thickness=2)
         forehead_area = get_contour_area(forehead_contour_hull)
 
-        hand_contour = get_hand_contour(hand_landmarks[0], image_shape)
-        hand_contour_hull = find_contour_hull(hand_contour)
-        if settings.DRAW_HAND_FACE_CONTOUR:
-            # 绘制手部凸包轮廓
-            cv2.polylines(image, [hand_contour_hull], isClosed=True, color=(255, 0, 0), thickness=2)
-
-        intersection_area = calculate_intersection_area(hand_contour_hull, forehead_contour_hull)
-        intersection_ratio = intersection_area / forehead_area
-        print(f"Intersection Ratio: {intersection_ratio}")
-        return intersection_ratio > threshold
+        for index, hand_landmark in enumerate(hand_landmarks):
+            if self.is_one_hand_intersecting_forehead(image, hand_landmark, forehead_contour_hull, forehead_area):
+                return True
+        return False
 
     def hand_intersecting_forehead_detection(self, image, hand_result, face_result):
         """
@@ -105,7 +111,7 @@ class CoreModule:
         :return:
         """
         if face_result.face_landmarks and hand_result.hand_landmarks:
-            if self.is_hand_intersecting_forehead(image, hand_result.hand_landmarks, face_result.face_landmarks[0]):
+            if self.is_hands_intersecting_forehead(image, hand_result.hand_landmarks, face_result.face_landmarks[0]):
                 cv2.putText(image, 'Hand Intersecting Forehead', (10, 60),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:
