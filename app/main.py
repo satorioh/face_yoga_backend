@@ -48,4 +48,4 @@ def start_video(video_path):
 
 if __name__ == '__main__':
     video_path = "../asserts/video/sample2.mp4"
-    start_video(video_path)
+    start()
