@@ -6,6 +6,8 @@ from utils import draw_landmarks_on_hands, draw_landmarks_on_face, draw_points_t
     get_smooth_points
 from config import settings
 
+RUNNING_MODE = settings.RUNNING_MODE
+
 
 class CoreModule:
     def __init__(self):
@@ -17,10 +19,13 @@ class CoreModule:
         self.hand_center_points_left = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # left
         self.hand_center_points_right = deque(maxlen=settings.FRAME_NUM_FOR_HAND_CENTER_POINTS)  # right
 
-    def init_camera(self):
-        cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.CAMERA_HEIGHT)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.CAMERA_WIDTH)
+    def init_camera(self, video_path=None):
+        if video_path:
+            cap = cv2.VideoCapture(video_path)
+        else:
+            cap = cv2.VideoCapture(settings.CAMERA_DEVICE)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.CAMERA_HEIGHT)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.CAMERA_WIDTH)
         return cap
 
     def init_detector_module(self):
@@ -159,8 +164,8 @@ class CoreModule:
                 draw_points_trajectory(image, self.hand_center_points_right)
         return image
 
-    def start(self):
-        cap = self.init_camera()
+    def start(self, video_path=None):
+        cap = self.init_camera(video_path)
         timestamp = 0
 
         while cap.isOpened():
@@ -176,8 +181,12 @@ class CoreModule:
 
             # ------------- Detection Start ---------------#
             # 获取手部和面部关键点
-            self.hand_detector.detect_async(image_for_detect, timestamp)
-            self.face_detector.detect_async(image_for_detect, timestamp)
+            if RUNNING_MODE == "LIVE_STREAM":
+                self.hand_detector.detect_async(image_for_detect, timestamp)
+                self.face_detector.detect_async(image_for_detect, timestamp)
+            elif RUNNING_MODE == "VIDEO":
+                self.hand_module.result = self.hand_detector.detect_for_video(image_for_detect, timestamp)
+                self.face_module.result = self.face_detector.detect_for_video(image_for_detect, timestamp)
             # ------------- Detection End -----------------#
 
             if self.hand_module.result and self.face_module.result:
@@ -215,4 +224,5 @@ class CoreModule:
 
 if __name__ == '__main__':
     core_module = CoreModule()
-    core_module.start()
+    video_path = "../asserts/video/sample2.mp4" if RUNNING_MODE == "VIDEO" else None
+    core_module.start(video_path)
