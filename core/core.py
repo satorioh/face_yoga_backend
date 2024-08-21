@@ -1,10 +1,12 @@
 import cv2
 import mediapipe as mp
 from detector import HandModule, FaceModule
-from utils import draw_landmarks_on_hands, draw_landmarks_on_face, get_face_bbox, get_forehead_contour, \
-    get_contour_area, get_hand_contour, calculate_intersection_area, find_contour_hull, draw_arrows_on_forehead
+from utils import (draw_landmarks_on_hands, draw_landmarks_on_face, get_face_bbox, get_forehead_contour,
+                   get_contour_area, get_hand_contour, calculate_intersection_area, find_contour_hull,
+                   draw_arrows_on_forehead,
+                   get_cheek_contours)
 from config import settings
-from constants import HAND_FOREHEAD_INTERSECTION_THRESHOLD
+from constants import HAND_FOREHEAD_INTERSECTION_THRESHOLD, HAND_CHEEK_INTERSECTION_THRESHOLD
 
 
 class CoreModule:
@@ -80,7 +82,7 @@ class CoreModule:
         image_shape = image.shape
         hand_contour = get_hand_contour(hand_landmarks, image_shape)
         hand_contour_hull = find_contour_hull(hand_contour)
-        if settings.DRAW_HAND_FACE_CONTOUR:
+        if settings.DRAW_HAND_CONTOUR:
             # 绘制手部凸包轮廓
             cv2.polylines(image, [hand_contour_hull], isClosed=True, color=(255, 0, 0), thickness=2)
 
@@ -88,17 +90,50 @@ class CoreModule:
         intersection_ratio = intersection_area / forehead_area
         return intersection_ratio > threshold
 
+    def is_one_hand_intersecting_cheeks(self, image, hand_landmarks, cheek_contour_hulls, cheek_areas):
+        image_shape = image.shape
+        hand_contour = get_hand_contour(hand_landmarks, image_shape)
+        hand_contour_hull = find_contour_hull(hand_contour)
+        if settings.DRAW_HAND_CONTOUR:
+            # 绘制手部凸包轮廓
+            cv2.polylines(image, [hand_contour_hull], isClosed=True, color=(255, 0, 0), thickness=2)
+
+        for index, cheek_contour_hull in enumerate(cheek_contour_hulls):
+            intersection_area = calculate_intersection_area(hand_contour_hull, cheek_contour_hull)
+            print(f"Cheek Intersection Area: {intersection_area}")
+            intersection_ratio = intersection_area / cheek_areas[index]
+            if intersection_ratio > HAND_CHEEK_INTERSECTION_THRESHOLD:
+                return True
+        return False
+
     def is_hands_intersecting_forehead(self, image, hand_landmarks, face_landmarks):
         image_shape = image.shape
         forehead_contour = get_forehead_contour(face_landmarks, image_shape)
         forehead_contour_hull = find_contour_hull(forehead_contour)
-        if settings.DRAW_HAND_FACE_CONTOUR:
+        if settings.DRAW_FOREHEAD_CONTOUR:
             # 绘制额部凸包轮廓
             cv2.polylines(image, [forehead_contour_hull], isClosed=True, color=(0, 255, 0), thickness=2)
         forehead_area = get_contour_area(forehead_contour_hull)
 
         for index, hand_landmark in enumerate(hand_landmarks):
             if self.is_one_hand_intersecting_forehead(image, hand_landmark, forehead_contour_hull, forehead_area):
+                return True
+        return False
+
+    def is_hands_intersecting_cheeks(self, image, hand_landmarks, face_landmarks):
+        image_shape = image.shape
+        left_cheek_contour, right_cheek_contour = get_cheek_contours(face_landmarks, image_shape)
+        left_cheek_contour_hull = find_contour_hull(left_cheek_contour)
+        right_cheek_contour_hull = find_contour_hull(right_cheek_contour)
+        cheek_contour_hulls = [left_cheek_contour_hull, right_cheek_contour_hull]
+        if settings.DRAW_CHEEKS_CONTOUR:
+            # 绘制脸颊凸包轮廓
+            cv2.polylines(image, [left_cheek_contour_hull], isClosed=True, color=(0, 255, 0), thickness=2)
+            cv2.polylines(image, [right_cheek_contour_hull], isClosed=True, color=(0, 255, 0), thickness=2)
+        cheek_areas = [get_contour_area(left_cheek_contour_hull), get_contour_area(right_cheek_contour_hull)]
+
+        for index, hand_landmark in enumerate(hand_landmarks):
+            if self.is_one_hand_intersecting_cheeks(image, hand_landmark, cheek_contour_hulls, cheek_areas):
                 return True
         return False
 
@@ -118,6 +153,22 @@ class CoreModule:
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:
                 cv2.putText(image, 'Hand not Intersecting Forehead', (10, 60),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
+
+    def hand_intersecting_cheeks_detection(self, image, hand_result, face_result):
+        """
+        判断手部是否与脸颊相交
+        :param image:
+        :param hand_result:
+        :param face_result:
+        :return:
+        """
+        if face_result.face_landmarks and hand_result.hand_landmarks:
+            if self.is_hands_intersecting_cheeks(image, hand_result.hand_landmarks, face_result.face_landmarks[0]):
+                cv2.putText(image, 'Hand Intersecting Cheeks', (10, 90),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+            else:
+                cv2.putText(image, 'Hand not Intersecting Cheeks', (10, 90),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2, cv2.LINE_AA)
 
     def process(self, frame, timestamp):
@@ -159,6 +210,10 @@ class CoreModule:
 
             # 判断手部是否与额头相交
             self.hand_intersecting_forehead_detection(image, hand_result, face_result)
+
+            # 判断手部是否与脸颊相交
+            self.hand_intersecting_cheeks_detection(image, hand_result, face_result)
+
             # ------------- Operation End ---------------#
             return image
         else:
