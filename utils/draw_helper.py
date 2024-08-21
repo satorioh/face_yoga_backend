@@ -3,7 +3,7 @@ import mediapipe as mp
 import numpy as np
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
-from constants import FOREHEAD_ARROW_INDEX
+from constants import FOREHEAD_ARROW_INDEX, CHEEKS_ARROW_INDEX
 from utils import point2pixel
 
 
@@ -87,6 +87,24 @@ def draw_arrows_on_forehead(image, face_landmarks):
 
     # Calculate forehead region
     arrow_landmarks = [face_landmarks[i] for i in FOREHEAD_ARROW_INDEX]
+    arrow_left_start, arrow_left_end, arrow_right_start, arrow_right_end = [point2pixel(landmark, image.shape) for
+                                                                            landmark in arrow_landmarks]
+
+    # Draw arrows
+    cv2.arrowedLine(image, arrow_left_start, arrow_left_end, arrow_color, arrow_thickness, tipLength=arrow_tip_length)
+    cv2.arrowedLine(image, arrow_right_start, arrow_right_end, arrow_color, arrow_thickness, tipLength=arrow_tip_length)
+
+    return image
+
+
+def draw_arrows_on_cheeks(image, face_landmarks):
+    # Define arrow parameters
+    arrow_color = (0, 255, 0)  # Green color
+    arrow_thickness = 2
+    arrow_tip_length = 0.3  # Relative size of the arrow tip
+
+    # Calculate forehead region
+    arrow_landmarks = [face_landmarks[i] for i in CHEEKS_ARROW_INDEX]
     arrow_left_start, arrow_left_end, arrow_right_start, arrow_right_end = [point2pixel(landmark, image.shape) for
                                                                             landmark in arrow_landmarks]
 

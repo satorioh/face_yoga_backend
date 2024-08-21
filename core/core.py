@@ -3,7 +3,7 @@ import mediapipe as mp
 from detector import HandModule, FaceModule
 from utils import (draw_landmarks_on_hands, draw_landmarks_on_face, get_face_bbox, get_forehead_contour,
                    get_contour_area, get_hand_contour, calculate_intersection_area, find_contour_hull,
-                   draw_arrows_on_forehead,
+                   draw_arrows_on_forehead, draw_arrows_on_cheeks,
                    get_cheek_contours)
 from config import settings
 from constants import HAND_FOREHEAD_INTERSECTION_THRESHOLD, HAND_CHEEK_INTERSECTION_THRESHOLD
@@ -100,7 +100,6 @@ class CoreModule:
 
         for index, cheek_contour_hull in enumerate(cheek_contour_hulls):
             intersection_area = calculate_intersection_area(hand_contour_hull, cheek_contour_hull)
-            print(f"Cheek Intersection Area: {intersection_area}")
             intersection_ratio = intersection_area / cheek_areas[index]
             if intersection_ratio > HAND_CHEEK_INTERSECTION_THRESHOLD:
                 return True
@@ -165,6 +164,8 @@ class CoreModule:
         """
         if face_result.face_landmarks and hand_result.hand_landmarks:
             if self.is_hands_intersecting_cheeks(image, hand_result.hand_landmarks, face_result.face_landmarks[0]):
+                # 绘制箭头
+                draw_arrows_on_cheeks(image, face_result.face_landmarks[0])
                 cv2.putText(image, 'Hand Intersecting Cheeks', (10, 90),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             else:
