@@ -2,7 +2,8 @@
 
 ## Overview
 This project is a real-time interactive facial massage guidance system. It uses a camera to detect the user's hand gestures and actions, guiding them through a predefined facial massage routine.
-<iframe src="//player.bilibili.com/player.html?aid=113027567518605&bvid=BV1XRs7e4E31&cid=500001662885653&p=1&autoplay=0" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"> </iframe>
+
+<iframe src="//player.bilibili.com/player.html?isOutside=true&aid=113027567518605&bvid=BV1XRs7e4E31&cid=500001662885653&p=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>
 
 ## Core Features
 
